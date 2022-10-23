@@ -5,6 +5,7 @@ The code was based on https://github.com/AdrianCX/pico433mhz library and contain
 
 import time
 from machine import Pin
+from micropython import schedule
 from collections import namedtuple
 
 MAX_CHANGES: int = 67
@@ -46,16 +47,40 @@ class RFBase:
             print(*args, **kwargs)
 
 
+class RFIncomingMessage:
+    def __init__(
+        self,
+        code: int = None,
+        timestamp: int = None,
+        bitlength=None,
+        pulse_length=None,
+        proto=None,
+    ) -> None:
+        self.code = code
+        self.code_timestamp = timestamp
+        self.bitlength = bitlength
+        self.pulse_length = pulse_length
+        self.proto = proto
+
+    def __repr__(self) -> str:
+        _msg = f"RFIncomingMessage:(CODE:{self.code},"
+        _msg = _msg + f" CODE_TIMESTAMP:{self.code_timestamp},"
+        _msg = _msg + f" BITLENGTH:{self.bitlength},"
+        _msg = _msg + f" PULSE_LENGTH:{self.pulse_length}, PROTO:{self.proto})"
+        return _msg
+
+
 class RFReceiver(RFBase):
     def __init__(
         self,
         pin_number: int = DEFAULT_RECEIVER_PIN,
         max_changes: int = MAX_CHANGES,
         tolerance=80,
+        debug: bool = True,
         enable_on_create: bool = True,
     ):
         """Initialize the RF device."""
-        super().__init__(pin_number=pin_number)
+        super().__init__(pin_number=pin_number, debug=debug)
         self.tolerance: int = tolerance
         # internal values
         self._timings: int = [0] * (max_changes + 1)
@@ -68,6 +93,7 @@ class RFReceiver(RFBase):
         self.proto = None
         self.bitlength = None
         self.pulse_length = None
+        self.listeners = []
         if enable_on_create:
             self.enable()
 
@@ -80,7 +106,7 @@ class RFReceiver(RFBase):
             self.enabled = True
             self.gpio = Pin(self.pin_number, Pin.IN, Pin.PULL_DOWN)
             self.gpio.irq(
-                handler=self.callback, trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING
+                handler=self._callback, trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING
             )
             self.print(f"Receiver enabled, pin: {self.pin_number}")
         return True
@@ -94,7 +120,7 @@ class RFReceiver(RFBase):
         return True
 
     # pylint: disable=unused-argument
-    def callback(self, gpio):
+    def _callback(self, gpio):
         """Receiver callback for GPIO event detection. Handle basic signal detection."""
         global PROTOCOLS
         timestamp = time.ticks_us()
@@ -149,8 +175,8 @@ class RFReceiver(RFBase):
             self.bitlength = int(change_count / 2)
             self.pulse_length = delay
             self.proto = pnum
+            schedule(self._notify, None)
             return True
-
         return False
 
     def clear(self):
@@ -159,6 +185,35 @@ class RFReceiver(RFBase):
         self.proto = None
         self.bitlength = None
         self.pulse_length = None
+
+    def add_listener(self, listener):
+        #         if hasattr(listener, "__call__"): # doesn't work in MPy
+        if "function" in str(type(listener)):
+            self.print("Added new listener")
+            self.listeners.append(listener)
+
+    def remove_listener(self, listener):
+        for i, _listener in enumerate(self.listeners):
+            if _listener == listener:
+                self.print("Removed listener")
+                del self.listeners[i]
+
+    def clear_listeners(self):
+        self.listeners = []
+
+    def _notify(self, _):
+        new_incoming = RFIncomingMessage(
+            code=self.code,
+            timestamp=self.code_timestamp,
+            bitlength=self.bitlength,
+            pulse_length=self.pulse_length,
+            proto=self.proto,
+        )
+        if self.listeners:
+            self.print(f"Notify new message to {len(self.listeners)} listeners")
+            for listener in self.listeners:
+                self.print(f"Calling {listener}")
+                listener(new_incoming)
 
 
 """ Transmitter is a work in progress """
@@ -172,9 +227,11 @@ class RFTransmitter(RFBase):
         pulse_length=None,
         repeat: int = 10,
         length: int = 24,
+        debug: bool = True,
+        enable_on_create: bool = True,
     ):
         global PROTOCOLS
-        super().__init__(pin_number=pin_number)
+        super().__init__(pin_number=pin_number, debug=debug)
         self.proto_number = proto_number
         self.pulse_length = PROTOCOLS[self.proto_number].pulse_length
         if pulse_length:
@@ -182,6 +239,8 @@ class RFTransmitter(RFBase):
 
         self.repeat = repeat
         self.length = length
+        if enable_on_create:
+            self.enable()
 
     def enable(self):
         """Enable Transmitter, set up GPIO."""
