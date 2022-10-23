@@ -55,7 +55,7 @@ class RFReceiver(RFBase):
         enable_on_create: bool = True,
     ):
         """Initialize the RF device."""
-        super.__init__(pin_number)
+        super().__init__(pin_number=pin_number)
         self.tolerance: int = tolerance
         # internal values
         self._timings: int = [0] * (max_changes + 1)
@@ -174,7 +174,7 @@ class RFTransmitter(RFBase):
         length: int = 24,
     ):
         global PROTOCOLS
-        super().__init__(pin_number)
+        super().__init__(pin_number=pin_number)
         self.proto_number = proto_number
         self.pulse_length = PROTOCOLS[self.proto_number].pulse_length
         if pulse_length:
