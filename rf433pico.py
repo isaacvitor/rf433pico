@@ -36,7 +36,7 @@ PROTOCOLS = (
 
 
 class RFBase:
-    def __init__(self, pin_number: int = None, debug: bool = True):
+    def __init__(self, pin_number: int = None, debug: bool = False):
         self.gpio: Pin = None
         self.pin_number: int = pin_number
         self.enabled: bool = False
@@ -76,7 +76,7 @@ class RFReceiver(RFBase):
         pin_number: int = DEFAULT_RECEIVER_PIN,
         max_changes: int = MAX_CHANGES,
         tolerance=80,
-        debug: bool = True,
+        debug: bool = False,
         enable_on_create: bool = True,
     ):
         """Initialize the RF device."""
@@ -227,7 +227,7 @@ class RFTransmitter(RFBase):
         pulse_length=None,
         repeat: int = 10,
         length: int = 24,
-        debug: bool = True,
+        debug: bool = False,
         enable_on_create: bool = True,
     ):
         global PROTOCOLS

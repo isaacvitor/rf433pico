@@ -1,8 +1,8 @@
 import time
-from rf433pico import RFReceiver, RFIncomingMessage
+from rf433pico import RFReceiver
 
 # Creating a new RFReceiver instance
-receiver = RFReceiver(pin_number=18, debug=False)
+receiver = RFReceiver(pin_number=18, debug=True)
 # Enabling receiver
 receiver.enable()
 
