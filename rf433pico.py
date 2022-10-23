@@ -96,6 +96,7 @@ class RFReceiver(RFBase):
     # pylint: disable=unused-argument
     def callback(self, gpio):
         """Receiver callback for GPIO event detection. Handle basic signal detection."""
+        global PROTOCOLS
         timestamp = time.ticks_us()
         duration = timestamp - self._last_timestamp
         if duration > 5000:
@@ -118,6 +119,7 @@ class RFReceiver(RFBase):
 
     def _waveform(self, pnum, change_count, timestamp):
         """Detect waveform and format code."""
+        global PROTOCOLS
         code = 0
         delay = int(self._timings[0] / PROTOCOLS[pnum].sync_low)
         delay_tolerance = delay * self.tolerance / 100
